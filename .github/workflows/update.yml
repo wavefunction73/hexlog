@@ -2,7 +2,7 @@ name: Update clan timeline
 
 on:
   schedule:
-    - cron: "1 * * * *"      # every hour at :01 (UTC; GitHub may run it a few minutes late)
+    - cron: "1,11,21,31,41,51 * * * *"      # every hour at :01 (UTC; GitHub may run it a few minutes late)
   workflow_dispatch:           # adds a "Run workflow" button for manual refreshes
 
 permissions:
