@@ -20,7 +20,9 @@ header{display:flex;flex-wrap:wrap;gap:12px 32px;align-items:flex-end;justify-co
 h1{font:700 clamp(28px,4vw,44px)/1 "Barlow Condensed","Arial Narrow",sans-serif;margin:0;letter-spacing:.01em}
 h2{font:700 24px/1.1 "Barlow Condensed","Arial Narrow",sans-serif;margin:0 0 12px}
 .meta{color:var(--muted);margin-top:6px}
-.status{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-top:2px}
+.metarow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:6px}
+.metarow .meta{margin-top:0}
+.status{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
 .status button{font:500 13px "Barlow",sans-serif;color:#23271f;background:var(--sulfur);border:0;
   border-radius:3px;padding:3px 10px;cursor:pointer}
 .controls{display:flex;gap:8px;align-items:center;color:var(--muted)}
@@ -103,8 +105,10 @@ td.on{color:var(--live)}
 <header>
   <div>
     <h1 id="title">__SERVER_NAME__</h1>
-    <div class="meta" id="meta"></div>
-    <div class="meta status" id="status" aria-live="polite"></div>
+    <div class="metarow">
+      <span class="meta" id="meta"></span>
+      <span class="meta status" id="status" aria-live="polite"></span>
+    </div>
   </div>
   <div class="controls" role="group" aria-label="Zoom">
     <span>Zoom</span>
@@ -420,7 +424,7 @@ if (D){
   document.getElementById('title').textContent = D.server;
   document.title = D.server + ' timeline';
   document.getElementById('meta').textContent =
-    `${fmtTime.format(D.start)} to ${fmtTime.format(D.end)}, ${((D.end-D.start)/864e5).toFixed(1)} days, shown in your local time`;
+    `${fmtTime.format(D.start)} to ${fmtTime.format(D.end)}, ${((D.end-D.start)/864e5).toFixed(1)} days, shown in your local time.`;
   buildModel();
   updateStatus(); setInterval(updateStatus, 30000);
   renderLegend();
