@@ -287,6 +287,28 @@ def summary_text(server_name, sid, since, until, members, stats):
 
 # --------------------------------------------------------------------------- output
 
+def add_page_meta(html, server_name, since, until, members):
+    """Put the server name and a short status line into the page itself, so link
+    previews (Discord, messaging apps) show them without running JavaScript."""
+    from html import escape
+    online = [m["label"] for m in members if m["sessions"] and m["sessions"][-1]["ongoing"]]
+    days = (until - since).total_seconds() / 86400
+    stamp = local(until).strftime("%a %d %b, %H:%M %Z").strip()
+    who = f"Online now: {', '.join(online)}." if online else "Nobody from the clan online right now."
+    desc = f"{who} Updated {stamp}. Day {days:.1f} of the wipe."
+    title = f"{server_name} timeline"
+    meta = "\n".join([
+        f'<meta name="description" content="{escape(desc)}">',
+        '<meta property="og:type" content="website">',
+        f'<meta property="og:title" content="{escape(title)}">',
+        f'<meta property="og:description" content="{escape(desc)}">',
+        '<meta name="theme-color" content="#e2bd3f">',
+    ])
+    return (html.replace("<title>Clan timeline</title>", f"<title>{escape(title)}</title>", 1)
+                .replace("<!--__META__-->", meta, 1)
+                .replace("__SERVER_NAME__", escape(server_name), 1))
+
+
 def write_outputs(server_name, sid, since, until, members):
     OUT.mkdir(exist_ok=True)
     stats = analyse(members, since, until)
@@ -320,6 +342,7 @@ def write_outputs(server_name, sid, since, until, members):
         die("timeline_template.html is missing; keep it next to rustlog.py")
     html = TEMPLATE_PATH.read_text(encoding="utf-8").replace(
         "/*__DATA__*/null", json.dumps(payload))
+    html = add_page_meta(html, server_name, since, until, members)
     (OUT / "timeline.html").write_text(html, encoding="utf-8")
 
     text = summary_text(server_name, sid, since, until, members, stats)
