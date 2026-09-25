@@ -287,6 +287,36 @@ def summary_text(server_name, sid, since, until, members, stats):
 
 # --------------------------------------------------------------------------- output
 
+def schedule_minutes():
+    """UTC minutes-past-the-hour from the cron line in the GitHub workflow, or None."""
+    import re
+    wf = HERE / ".github" / "workflows" / "update.yml"
+    if not wf.exists():
+        return None
+    m = re.search(r"cron:\s*[\"']([^\"']+)[\"']", wf.read_text(encoding="utf-8"))
+    if not m:
+        return None
+    fields = m.group(1).split()
+    if len(fields) != 5 or fields[1:] != ["*", "*", "*", "*"]:
+        return None  # only "every hour at these minutes" schedules are shown
+    mins = set()
+    for part in fields[0].split(","):
+        step = 1
+        if "/" in part:
+            part, step = part.split("/")
+            step = int(step)
+        if part == "*":
+            lo, hi = 0, 59
+        elif "-" in part:
+            lo, hi = map(int, part.split("-"))
+        else:
+            lo = hi = int(part)
+            if step > 1:
+                hi = 59
+        mins.update(range(lo, hi + 1, step))
+    return sorted(x for x in mins if 0 <= x <= 59) or None
+
+
 def add_page_meta(html, server_name, since, until, members):
     """Put the server name and a short status line into the page itself, so link
     previews (Discord, messaging apps) show them without running JavaScript."""
@@ -329,6 +359,7 @@ def write_outputs(server_name, sid, since, until, members):
         "server": server_name, "serverId": sid,
         "start": int(since.timestamp() * 1000), "end": int(until.timestamp() * 1000),
         "generated": int(datetime.now(UTC).timestamp() * 1000),
+        "schedule": schedule_minutes(),
         "members": [{
             "name": m["label"], "id": m["id"], "minutes": m["minutes"],
             "sessions": [[int(s["start"].timestamp() * 1000),

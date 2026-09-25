@@ -20,6 +20,9 @@ header{display:flex;flex-wrap:wrap;gap:12px 32px;align-items:flex-end;justify-co
 h1{font:700 clamp(28px,4vw,44px)/1 "Barlow Condensed","Arial Narrow",sans-serif;margin:0;letter-spacing:.01em}
 h2{font:700 24px/1.1 "Barlow Condensed","Arial Narrow",sans-serif;margin:0 0 12px}
 .meta{color:var(--muted);margin-top:6px}
+.status{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-top:2px}
+.status button{font:500 13px "Barlow",sans-serif;color:#23271f;background:var(--sulfur);border:0;
+  border-radius:3px;padding:3px 10px;cursor:pointer}
 .controls{display:flex;gap:8px;align-items:center;color:var(--muted)}
 .controls button{font:500 14px "Barlow",sans-serif;color:var(--ink);background:var(--panel);
   border:1px solid var(--line);border-radius:3px;padding:6px 12px;cursor:pointer}
@@ -101,6 +104,7 @@ td.on{color:var(--live)}
   <div>
     <h1 id="title">__SERVER_NAME__</h1>
     <div class="meta" id="meta"></div>
+    <div class="meta status" id="status" aria-live="polite"></div>
   </div>
   <div class="controls" role="group" aria-label="Zoom">
     <span>Zoom</span>
@@ -256,6 +260,33 @@ document.querySelectorAll('[data-z]').forEach(b => b.addEventListener('click', (
 }));
 addEventListener('resize', () => { if (zoom==='fit') render(); });
 
+/* ---------- update status ---------- */
+const hm = t => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const ago = ms => ms < 90000 ? 'just now' : `${dur(ms)} ago`;
+function nextRun(after){
+  const d = new Date(after); d.setUTCSeconds(0, 0);
+  for (let i = 1; i <= 60; i++){
+    const t = d.getTime() + i*60000;
+    if (D.schedule.includes(new Date(t).getUTCMinutes())) return t;
+  }
+  return null;
+}
+function updateStatus(){
+  const el = document.getElementById('status');
+  const now = Date.now(), age = now - D.generated;
+  let text = `Updated ${ago(age)}.`, stale = false;
+  if (D.schedule && D.schedule.length){
+    const due = nextRun(D.generated);
+    if (now < due) text += ` Next update due around ${hm(due)} (in ${dur(due - now)}).`;
+    else if (now < due + 20*60000){ text += ` An update was due at ${hm(due)}, so a newer version may be ready.`; stale = true; }
+    else { text += ` Updates are running late (one was due at ${hm(due)}). GitHub sometimes delays or skips scheduled runs.`; stale = true; }
+  }
+  el.innerHTML = `<span>${text}</span>` + (stale ? '<button type="button" id="reload">Load latest</button>' : '');
+  const b = document.getElementById('reload');
+  // a fresh query string skips the cached copy, so nobody needs Ctrl+F5
+  if (b) b.onclick = () => { location.href = location.pathname + '?r=' + Date.now(); };
+}
+
 /* ---------- legend ---------- */
 function renderLegend(){
   let key = ''; for (let c = 1; c <= N; c++) key += `<i style="background:${levelColor(c)}">${c}</i>`;
@@ -391,6 +422,7 @@ if (D){
   document.getElementById('meta').textContent =
     `${fmtTime.format(D.start)} to ${fmtTime.format(D.end)}, ${((D.end-D.start)/864e5).toFixed(1)} days, shown in your local time`;
   buildModel();
+  updateStatus(); setInterval(updateStatus, 30000);
   renderLegend();
   renderStats();
 }
