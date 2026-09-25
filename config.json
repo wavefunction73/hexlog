@@ -1,0 +1,39 @@
+{
+  "server_id": "20839213",
+  "api_token": "",
+  "wipe_start": "auto",
+  "clan": [
+    {
+      "name": "bALLZie",
+      "bm_id": "992570760"
+    },
+    {
+      "name": "Bruh",
+      "bm_id": "967786884"
+    },
+    {
+      "name": "Cat",
+      "bm_id": "301816531"
+    },
+    {
+      "name": "Ejrampage",
+      "bm_id": "986745897"
+    },
+    {
+      "name": "Genevtana",
+      "bm_id": "988895142"
+    },
+    {
+      "name": "Jet5",
+      "bm_id": "1096805026"
+    },
+    {
+      "name": "kodi",
+      "bm_id": "1112628331"
+    },
+    {
+      "name": "WaveFunction",
+      "bm_id": "393737518"
+    }
+  ]
+}

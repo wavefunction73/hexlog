@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clan timeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:#23271f; --panel:#2c3127; --band:#30362b; --line:#434a3c;
+  --ink:#e8e3cf; --muted:#9ea08b; --sulfur:#e2bd3f; --live:#9bd36a; --scan:#f3efe0;
+  --name-w:150px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ground);color:var(--ink);
+  font:15px/1.45 "Barlow",system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;flex-wrap:wrap;gap:12px 32px;align-items:flex-end;justify-content:space-between;padding:28px 28px 18px}
+h1{font:700 clamp(28px,4vw,44px)/1 "Barlow Condensed","Arial Narrow",sans-serif;margin:0;letter-spacing:.01em}
+h2{font:700 24px/1.1 "Barlow Condensed","Arial Narrow",sans-serif;margin:0 0 12px}
+.meta{color:var(--muted);margin-top:6px}
+.controls{display:flex;gap:8px;align-items:center;color:var(--muted)}
+.controls button{font:500 14px "Barlow",sans-serif;color:var(--ink);background:var(--panel);
+  border:1px solid var(--line);border-radius:3px;padding:6px 12px;cursor:pointer}
+.controls button[aria-pressed="true"]{background:var(--sulfur);color:#23271f;border-color:var(--sulfur)}
+button:focus-visible,.bar:focus-visible{outline:2px solid var(--scan);outline-offset:2px}
+
+.scroller{overflow-x:auto;margin:0 28px;border:1px solid var(--line);background:var(--panel)}
+.chart{position:relative;min-width:100%}
+.row{display:flex;height:40px;border-top:1px solid var(--line)}
+.row.axis{height:44px;border-top:0}
+.row.together{height:120px;border-top:2px solid var(--line)}
+.name{position:sticky;left:0;z-index:3;flex:0 0 var(--name-w);background:var(--panel);
+  padding:0 12px;display:flex;flex-direction:column;justify-content:center;border-right:1px solid var(--line)}
+.name b{font:700 17px/1.1 "Barlow Condensed","Arial Narrow",sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.name small{color:var(--muted);font-size:12px}
+.together .name{justify-content:space-between;padding:8px 12px}
+.scale{position:absolute;right:6px;top:0;bottom:0;display:flex;flex-direction:column-reverse;
+  font-size:10px;line-height:1;color:var(--muted);text-align:right}
+.scale span{flex:1;display:flex;align-items:center;justify-content:flex-end}
+.track{position:relative;flex:1 1 auto}
+.grid{position:absolute;inset:0;pointer-events:none;z-index:1}
+.day{position:absolute;top:0;bottom:0}
+.day.alt{background:var(--band)}
+.daylabel{position:absolute;top:6px;left:6px;font:500 13px "Barlow",sans-serif;white-space:nowrap}
+.tick{position:absolute;bottom:4px;font-size:11px;color:var(--muted);transform:translateX(-50%)}
+.bar{position:absolute;top:9px;height:22px;background:var(--sulfur);border-radius:2px;min-width:2px}
+.bar.live{background:var(--live)}
+.col{position:absolute;bottom:0}
+.now{position:absolute;top:0;bottom:0;width:0;border-left:1px dashed var(--live);z-index:2;pointer-events:none}
+.scan{position:absolute;top:0;bottom:0;width:0;border-left:1px solid var(--scan);z-index:4;pointer-events:none;display:none}
+.tip{position:fixed;z-index:10;background:#161913;color:var(--ink);border:1px solid var(--line);
+  padding:8px 10px;border-radius:3px;font-size:13px;max-width:300px;pointer-events:none;display:none}
+.tip strong{display:block;font:700 15px "Barlow Condensed",sans-serif;margin-bottom:2px}
+.tip .count{display:inline-block;padding:0 6px;border-radius:2px;color:#161913;font-weight:500;margin-right:6px}
+
+.legend{display:flex;gap:18px;flex-wrap:wrap;align-items:center;color:var(--muted);font-size:13px;padding:12px 28px 32px}
+.sw{display:inline-block;width:14px;height:10px;border-radius:2px;margin-right:6px}
+.key{display:inline-flex;gap:2px;align-items:center;margin-left:4px}
+.key i{display:inline-block;width:22px;height:16px;border-radius:2px;font:500 11px/16px "Barlow",sans-serif;
+  color:#161913;text-align:center;font-style:normal}
+
+/* stats */
+.stats{display:grid;grid-template-columns:1fr;gap:40px 48px;padding:0 28px 48px}
+/* medium: 2x2, players gets the wider column */
+@media (min-width:1200px){ .stats{grid-template-columns:minmax(300px,1fr) minmax(720px,1.7fr)} }
+/* wide: one row, sized to content: glance narrow, players widest */
+@media (min-width:2150px){ .stats{grid-template-columns:minmax(260px,.75fr) minmax(760px,1.9fr) minmax(520px,1.35fr) minmax(520px,1.35fr)} }
+.stats section{min-width:0}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:20px 28px;margin:0}
+.facts div{border-left:3px solid var(--sulfur);padding-left:12px}
+.facts dt{color:var(--muted);font-size:13px}
+.facts dd{margin:2px 0 0;font:700 26px/1.1 "Barlow Condensed",sans-serif}
+.facts dd small{display:block;font:400 13px/1.4 "Barlow",sans-serif;color:var(--muted);margin-top:3px}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:500;font-size:13px}
+th:first-child,td:first-child{text-align:left}
+td:first-child{font:700 16px "Barlow Condensed",sans-serif}
+td.on{color:var(--live)}
+.share{display:inline-block;height:6px;background:var(--sulfur);border-radius:1px;vertical-align:middle;margin-left:6px}
+.heat{display:grid;gap:2px;font-size:11px;color:var(--muted);min-width:520px}
+.heat .lab{align-self:center;font:700 14px/18px "Barlow Condensed",sans-serif;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:6px}
+.heat .c{height:18px;border-radius:2px}
+.heat .h{text-align:center}
+.note{color:var(--muted);font-size:13px;margin:10px 0 0;max-width:70ch}
+.duos td:first-child{font:400 14px "Barlow",sans-serif}
+.empty{padding:40px 28px;color:var(--muted)}
+@media (max-width:600px){
+  :root{--name-w:104px} header{padding:20px 16px 14px} .scroller{margin:0 12px}
+  .legend,.stats{padding-left:16px;padding-right:16px} .stats{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1 id="title">Clan timeline</h1>
+    <div class="meta" id="meta"></div>
+  </div>
+  <div class="controls" role="group" aria-label="Zoom">
+    <span>Zoom</span>
+    <button data-z="fit" aria-pressed="true">Whole wipe</button>
+    <button data-z="12">Hours</button>
+    <button data-z="40">Detail</button>
+  </div>
+</header>
+<div class="scroller" id="scroller"><div class="chart" id="chart"></div></div>
+<div class="legend" id="legend"></div>
+<div class="stats" id="stats"></div>
+<div class="tip" id="tip" role="status"></div>
+
+<script>
+const D = /*__DATA__*/null;
+const chart = document.getElementById('chart');
+const scroller = document.getElementById('scroller');
+const tip = document.getElementById('tip');
+
+const fmtDay = new Intl.DateTimeFormat(undefined,{weekday:'short',day:'numeric',month:'short'});
+const _wd = new Intl.DateTimeFormat(undefined,{weekday:'short'});
+const pad = n => String(n).padStart(2,'0');
+const fmtTime = {format: t => { const d=new Date(t); return `${_wd.format(d)} ${d.getDate()}, ${pad(d.getHours())}:${pad(d.getMinutes())}`; }};
+const dur = ms => { const m=Math.round(ms/60000); return m>=60 ? `${Math.floor(m/60)}h ${m%60}m` : `${m}m`; };
+const esc = s => String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+// red (1 online) -> amber -> green (everyone)
+const N = D ? D.members.length : 1;
+function levelColor(c){
+  if (c <= 0) return 'transparent';
+  const f = N > 1 ? (c-1)/(N-1) : 1;
+  return `hsl(${Math.round(f*120)} 72% ${50 - f*6}%)`;
+}
+// same scale but fractional (for averages); 0 fades to background
+function avgColor(v){
+  if (v <= 0.02) return 'var(--band)';
+  if (v < 1) return `hsla(0 72% 50% / ${0.25 + 0.75*v})`;
+  return levelColor(v);
+}
+
+/* ---------- minute-level model, shared by chart + stats ---------- */
+let M = null;
+function buildModel(){
+  const MIN = 60000, total = Math.ceil((D.end - D.start)/MIN) + 1;
+  const on = D.members.map(m => {
+    const a = new Uint8Array(total);
+    for (const [s,e] of m.sessions)
+      for (let k = Math.max(0, Math.floor((s-D.start)/MIN)); k <= Math.min(total-1, Math.floor((e-D.start)/MIN)); k++) a[k] = 1;
+    return a;
+  });
+  const counts = new Uint8Array(total);
+  on.forEach(a => a.forEach((v,k) => counts[k] += v));
+  M = {MIN, total, on, counts};
+}
+
+let zoom = 'fit';
+function render(){
+  if(!D){ chart.innerHTML='<p class="empty">No data. Run: python rustlog.py timeline</p>'; return; }
+  const span = D.end - D.start, hours = span/3.6e6;
+  const nameW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--name-w'));
+  const trackW = zoom==='fit' ? Math.max(scroller.clientWidth - nameW - 2, 300) : hours*zoom;
+  chart.style.width = (trackW + nameW) + 'px';
+  const pct = t => ((t - D.start)/span*100) + '%';
+
+  let bands = '', ticks = '';
+  const d = new Date(D.start); d.setHours(0,0,0,0);
+  let i = 0;
+  const pxPerHour = trackW/hours;
+  while(d.getTime() < D.end){
+    const next = new Date(d); next.setDate(d.getDate()+1);
+    const a = Math.max(d.getTime(), D.start), b = Math.min(next.getTime(), D.end);
+    const w = (b-a)/span*100;
+    bands += `<div class="day${i%2?' alt':''}" style="left:${pct(a)};width:${w}%"></div>`;
+    if (w/100*trackW > 60) ticks += `<div class="daylabel" style="left:calc(${pct(a)} + 6px)">${fmtDay.format(new Date(a))}</div>`;
+    for (const h of pxPerHour >= 10 ? [3,6,9,12,15,18,21] : pxPerHour >= 4 ? [6,12,18] : []){
+      const t = new Date(d); t.setHours(h);
+      if (t.getTime()>D.start && t.getTime()<D.end) ticks += `<div class="tick" style="left:${pct(t.getTime())}">${pad(h)}</div>`;
+    }
+    d.setTime(next.getTime()); i++;
+  }
+
+  let html = `<div class="row axis"><div class="name"><small>${N} members</small></div><div class="track">${bands}${ticks}</div></div>`;
+  for (const m of D.members){
+    let bars = '';
+    for (const [s,e,live,ign] of m.sessions){
+      bars += `<div class="bar${live?' live':''}" tabindex="0" style="left:${pct(s)};width:${(e-s)/span*100}%"
+        data-t="${esc(m.name)}" data-b="${fmtTime.format(s)} to ${live?'still online':fmtTime.format(e)}<br>${dur(e-s)}${ign && ign!==m.name ? `<br>as “${esc(ign)}”`:''}"
+        aria-label="${esc(m.name)}: ${fmtTime.format(s)} to ${live?'now':fmtTime.format(e)}, ${dur(e-s)}"></div>`;
+    }
+    html += `<div class="row"><div class="name"><b title="${esc(m.name)}">${esc(m.name)}</b><small>${(m.minutes/60).toFixed(1)} h</small></div><div class="track">${bands}${bars}</div></div>`;
+  }
+
+  // together row: bin to ~1.5px so every column is visible, take the max in each bin,
+  // merge neighbouring bins with the same count into one block
+  const binMin = Math.max(1, Math.round(1.5 * span/60000 / trackW));
+  const nb = Math.ceil(M.total / binMin);
+  const lv = new Uint8Array(nb);
+  for (let k = 0; k < M.total; k++){ const b = (k/binMin)|0; if (M.counts[k] > lv[b]) lv[b] = M.counts[k]; }
+  let cols = '';
+  for (let b = 0; b < nb; ){
+    let e = b; while (e+1 < nb && lv[e+1] === lv[b]) e++;
+    if (lv[b]) cols += `<div class="col" style="left:${b/nb*100}%;width:${(e-b+1)/nb*100}%;height:${lv[b]/N*100}%;background:${levelColor(lv[b])}"></div>`;
+    b = e+1;
+  }
+  const grid = `<div class="grid" style="background:repeating-linear-gradient(to top,transparent 0 calc(${100/N}% - 1px),rgba(0,0,0,.28) calc(${100/N}% - 1px) ${100/N}%)"></div>`;
+  let scale = ''; for (let c = 1; c <= N; c++) scale += `<span>${c}</span>`;
+  const peak = Math.max(0, ...M.counts);
+  html += `<div class="row together"><div class="name"><div><b>Together</b><small style="display:block">peak ${peak} of ${N}</small></div><div class="scale">${scale}</div></div><div class="track">${bands}${cols}${grid}</div></div>`;
+
+  if (D.generated - D.end < 5*60000) html += `<div class="now" style="left:calc(${nameW}px + ${trackW}px - 1px)"></div>`;
+  html += `<div class="scan" id="scan"></div>`;
+  chart.innerHTML = html;
+  chart._geo = {nameW, trackW, span};
+}
+
+function whoAt(t){ return D.members.filter(m => m.sessions.some(([s,e]) => t>=s && t<=e)).map(m=>m.name); }
+function countChip(c){ return `<span class="count" style="background:${levelColor(c) === 'transparent' ? 'var(--muted)' : levelColor(c)}">${c} of ${N}</span>`; }
+function showTip(x,y,html){
+  tip.innerHTML = html; tip.style.display='block';
+  const r = tip.getBoundingClientRect();
+  tip.style.left = Math.min(x+14, innerWidth - r.width - 8)+'px';
+  tip.style.top = Math.min(y+14, innerHeight - r.height - 8)+'px';
+}
+chart.addEventListener('mousemove', ev => {
+  if(!D) return;
+  const g = chart._geo, rect = chart.getBoundingClientRect();
+  const x = ev.clientX - rect.left - g.nameW;
+  const scan = document.getElementById('scan');
+  if (x < 0 || x > g.trackW){ scan.style.display='none'; tip.style.display='none'; return; }
+  scan.style.display='block'; scan.style.left = (x + g.nameW)+'px';
+  const bar = ev.target.closest('.bar');
+  if (bar){ showTip(ev.clientX, ev.clientY, `<strong>${bar.dataset.t}</strong>${bar.dataset.b}`); return; }
+  const t = D.start + x/g.trackW*g.span, who = whoAt(t);
+  showTip(ev.clientX, ev.clientY, `<strong>${fmtTime.format(t)}</strong>${countChip(who.length)}${who.length ? who.map(esc).join(', ') : 'Nobody online'}`);
+});
+chart.addEventListener('mouseleave', () => { tip.style.display='none'; const s=document.getElementById('scan'); if(s) s.style.display='none'; });
+chart.addEventListener('focusin', ev => {
+  const bar = ev.target.closest('.bar'); if(!bar) return;
+  const r = bar.getBoundingClientRect();
+  showTip(r.left, r.bottom, `<strong>${bar.dataset.t}</strong>${bar.dataset.b}`);
+});
+chart.addEventListener('focusout', () => tip.style.display='none');
+
+document.querySelectorAll('[data-z]').forEach(b => b.addEventListener('click', () => {
+  zoom = b.dataset.z === 'fit' ? 'fit' : +b.dataset.z;
+  document.querySelectorAll('[data-z]').forEach(x => x.setAttribute('aria-pressed', x===b));
+  render();
+  if (zoom !== 'fit') scroller.scrollLeft = scroller.scrollWidth;
+}));
+addEventListener('resize', () => { if (zoom==='fit') render(); });
+
+/* ---------- legend ---------- */
+function renderLegend(){
+  let key = ''; for (let c = 1; c <= N; c++) key += `<i style="background:${levelColor(c)}">${c}</i>`;
+  document.getElementById('legend').innerHTML =
+    `<span><i class="sw" style="background:var(--sulfur)"></i>Online</span>
+     <span><i class="sw" style="background:var(--live)"></i>Still online at export</span>
+     <span>Members on together <span class="key">${key}</span></span>
+     <span>Hover anywhere to see who was on.</span>`;
+}
+
+/* ---------- stats ---------- */
+function renderStats(){
+  const {MIN, total, on, counts} = M;
+  const t = k => D.start + k*MIN;
+  const days = (D.end - D.start)/864e5;
+
+  // peak moment
+  let peak = 0, peakK = 0;
+  for (let k = 0; k < total; k++) if (counts[k] > peak){ peak = counts[k]; peakK = k; }
+  let pe = peakK; while (pe+1 < total && counts[pe+1] === peak) pe++;
+  let peakTotal = 0; for (let k = 0; k < total; k++) if (counts[k] === peak) peakTotal++;
+  const peakWho = D.members.filter((m,i) => on[i][peakK]).map(m => m.name);
+  const missing = D.members.filter((m,i) => !on[i][peakK]).map(m => m.name);
+
+  // coverage and longest empty stretch
+  let covered = 0, gapLen = 0, gapK = 0, run = 0;
+  for (let k = 0; k < total; k++){
+    if (counts[k]) { covered++; run = 0; }
+    else { run++; if (run > gapLen){ gapLen = run; gapK = k - run + 1; } }
+  }
+  // longest session
+  let best = null;
+  D.members.forEach(m => m.sessions.forEach(([s,e,live]) => { if (!best || e-s > best.len) best = {name:m.name, s, e, live, len:e-s}; }));
+  const combined = D.members.reduce((a,m) => a + m.minutes, 0);
+  // most-together stretch at 3+ (or half the clan)
+  const squad = Math.max(2, Math.ceil(N/2));
+  let squadMin = 0; for (let k = 0; k < total; k++) if (counts[k] >= squad) squadMin++;
+
+  const facts = `
+    <dl class="facts">
+      <div><dt>Most online at once</dt><dd>${peak} of ${N}<small>${fmtTime.format(t(peakK))} for ${dur((pe-peakK+1)*MIN)} (${dur(peakTotal*MIN)} total at this level)${missing.length && missing.length <= 3 ? `. Missing: ${missing.map(esc).join(', ')}` : ''}</small></dd></div>
+      <div><dt>Someone from the clan online</dt><dd>${Math.round(covered/total*100)}% of the wipe<small>${dur(covered*MIN)} of ${dur(total*MIN)}</small></dd></div>
+      <div><dt>Longest stretch with nobody on</dt><dd>${dur(gapLen*MIN)}<small>${gapLen ? `${fmtTime.format(t(gapK))} to ${fmtTime.format(t(gapK+gapLen))}` : 'Never empty'}</small></dd></div>
+      <div><dt>Longest single session</dt><dd>${dur(best ? best.len : 0)}<small>${best ? `${esc(best.name)}, ${fmtTime.format(best.s)}${best.live ? ', still going' : ''}` : ''}</small></dd></div>
+      <div><dt>Combined playtime</dt><dd>${(combined/60).toFixed(0)} h<small>${(combined/60/days).toFixed(1)} clan-hours per day</small></dd></div>
+      <div><dt>${squad}+ members on together</dt><dd>${dur(squadMin*MIN)}<small>${Math.round(squadMin/total*100)}% of the wipe</small></dd></div>
+    </dl>`;
+
+  // player table
+  const rows = D.members.map((m,i) => {
+    const ss = m.sessions, n = ss.length;
+    const longest = ss.reduce((a,[s,e]) => Math.max(a, e-s), 0);
+    const last = n ? ss[n-1] : null;
+    let solo = 0; for (let k = 0; k < total; k++) if (on[i][k] && counts[k] === 1) solo++;
+    return {m, n, longest, last, solo, share: m.minutes/total};
+  }).sort((a,b) => b.m.minutes - a.m.minutes);
+  const maxShare = Math.max(...rows.map(r => r.share), 0.01);
+  const table = `
+    <div class="tablewrap"><table>
+      <thead><tr><th>Player</th><th>Hours</th><th>Per day</th><th>Sessions</th><th>Avg session</th><th>Longest</th><th>Solo time</th><th>Last seen</th></tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        <td>${esc(r.m.name)}</td>
+        <td>${(r.m.minutes/60).toFixed(1)}<span class="share" style="width:${Math.round(r.share/maxShare*48)}px"></span></td>
+        <td>${(r.m.minutes/60/days).toFixed(1)} h</td>
+        <td>${r.n}</td>
+        <td>${r.n ? dur(r.m.minutes*MIN/r.n) : '-'}</td>
+        <td>${dur(r.longest)}</td>
+        <td>${dur(r.solo*MIN)}</td>
+        <td class="${r.last && r.last[2] ? 'on' : ''}">${!r.last ? '-' : r.last[2] ? 'Online now' : fmtTime.format(r.last[1])}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+    <p class="note">Solo time is when that player was the only clan member online.</p>`;
+
+  // typical day: share of days each member was on in each local hour; clan row = average headcount
+  const hourOf = new Uint8Array(total), dayOf = new Int32Array(total);
+  for (let k = 0; k < total; k++){ const d = new Date(t(k)); hourOf[k] = d.getHours(); dayOf[k] = Math.floor((d.getTime() - d.getTimezoneOffset()*60000)/864e5); }
+  const hourDays = Array.from({length:24}, () => new Set());
+  for (let k = 0; k < total; k++) hourDays[hourOf[k]].add(dayOf[k]);
+  const memberHour = on.map(a => {
+    const sets = Array.from({length:24}, () => new Set());
+    for (let k = 0; k < total; k++) if (a[k]) sets[hourOf[k]].add(dayOf[k]);
+    return sets.map((s,h) => s.size / Math.max(1, hourDays[h].size));
+  });
+  const avgHour = new Array(24).fill(0), nHour = new Array(24).fill(0);
+  for (let k = 0; k < total; k++){ avgHour[hourOf[k]] += counts[k]; nHour[hourOf[k]]++; }
+  for (let h = 0; h < 24; h++) avgHour[h] = nHour[h] ? avgHour[h]/nHour[h] : 0;
+
+  const cols = `grid-template-columns:minmax(80px,120px) repeat(24,1fr)`;
+  let heat = `<div class="heat" style="${cols}"><span></span>${Array.from({length:24},(_,h)=>`<span class="h">${h%3===0?pad(h):''}</span>`).join('')}`;
+  D.members.forEach((m,i) => {
+    heat += `<span class="lab">${esc(m.name)}</span>` + memberHour[i].map((v,h) =>
+      `<span class="c" title="${esc(m.name)}, ${pad(h)}:00: on ${Math.round(v*100)}% of days" style="background:${v ? `rgba(226,189,63,${0.18 + 0.82*v})` : 'var(--band)'}"></span>`).join('');
+  });
+  heat += `<span class="lab">Clan average</span>` + avgHour.map((v,h) =>
+    `<span class="c" title="${pad(h)}:00: ${v.toFixed(1)} members on average" style="background:${avgColor(v)}"></span>`).join('') + `</div>`;
+  const busiest = [...avgHour.keys()].sort((a,b) => avgHour[b]-avgHour[a]).slice(0,3);
+  const quietest = [...avgHour.keys()].sort((a,b) => avgHour[a]-avgHour[b]).slice(0,3);
+  const heatNote = `<p class="note">Brighter means more days that player was on during that hour. Busiest hours: ${busiest.map(h=>`${pad(h)}:00 (${avgHour[h].toFixed(1)} on)`).join(', ')}. Quietest: ${quietest.map(h=>`${pad(h)}:00 (${avgHour[h].toFixed(1)})`).join(', ')}.</p>`;
+
+  // duos: hours each pair spent online together
+  const pairs = [];
+  for (let a = 0; a < N; a++) for (let b = a+1; b < N; b++){
+    let x = 0; for (let k = 0; k < total; k++) if (on[a][k] && on[b][k]) x++;
+    pairs.push({a, b, x});
+  }
+  const pmax = Math.max(1, ...pairs.map(p => p.x));
+  const pairX = (a,b) => pairs.find(p => (p.a===a && p.b===b) || (p.a===b && p.b===a)).x;
+  let matrix = `<div class="heat" style="grid-template-columns:minmax(80px,120px) repeat(${N},1fr);min-width:${120+N*44}px">
+    <span></span>${D.members.map(m=>`<span class="h" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.name)}</span>`).join('')}`;
+  D.members.forEach((m,a) => {
+    matrix += `<span class="lab">${esc(m.name)}</span>`;
+    D.members.forEach((_,b) => {
+      if (a === b) { matrix += `<span class="c" style="height:30px;background:transparent"></span>`; return; }
+      const x = pairX(a,b), f = x/pmax;
+      matrix += `<span class="c" title="${esc(m.name)} + ${esc(D.members[b].name)}: ${(x/60).toFixed(1)} h together"
+        style="height:30px;display:flex;align-items:center;justify-content:center;color:${f>.45?'#161913':'var(--ink)'};background:${x ? `rgba(226,189,63,${0.12+0.88*f})` : 'var(--band)'}">${x ? Math.round(x/60) : ''}</span>`;
+    });
+  });
+  matrix += `</div>`;
+  const top = [...pairs].sort((p,q) => q.x - p.x).slice(0,3);
+  const duoNote = `<p class="note">Hours each pair was online at the same time. Top duos: ${top.map(p => `${esc(D.members[p.a].name)} + ${esc(D.members[p.b].name)} (${(p.x/60).toFixed(1)} h)`).join(', ')}.</p>`;
+
+  document.getElementById('stats').innerHTML = `
+    <section><h2>Wipe at a glance</h2>${facts}</section>
+    <section><h2>Players</h2>${table}</section>
+    <section><h2>Typical day</h2><div class="tablewrap">${heat}</div>${heatNote}</section>
+    <section><h2>Who plays with whom</h2><div class="tablewrap">${matrix}</div>${duoNote}</section>`;
+}
+
+if (D){
+  document.getElementById('title').textContent = D.server;
+  document.title = D.server + ' timeline';
+  document.getElementById('meta').textContent =
+    `${fmtTime.format(D.start)} to ${fmtTime.format(D.end)}, ${((D.end-D.start)/864e5).toFixed(1)} days, shown in your local time`;
+  buildModel();
+  renderLegend();
+  renderStats();
+}
+render();
+</script>
+</body>
+</html>
